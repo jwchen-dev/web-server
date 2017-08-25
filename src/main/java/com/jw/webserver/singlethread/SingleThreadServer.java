@@ -1,4 +1,4 @@
-package com.jw.webserver;
+package com.jw.webserver.singlethread;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -6,6 +6,8 @@ import java.net.Socket;
 import java.util.StringTokenizer;
 
 /**
+ * Tip. 以ab做壓測時,concurrent為10,做到第二round,server就會拋NullException然後shutdown.
+ * <p>
  * ref: http://tutorials.jenkov.com/java-multithreaded-servers/singlethreaded-server.html
  * <p>
  * Created by jw on 2017/8/25.
