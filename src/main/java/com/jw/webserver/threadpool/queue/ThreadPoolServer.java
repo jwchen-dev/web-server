@@ -5,6 +5,8 @@ import com.jw.webserver.threadpool.WorkerRunnable;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -22,6 +24,7 @@ public class ThreadPoolServer implements Runnable {
     protected boolean isStopped = false;
     protected Thread runningThread = null;
     protected ExecutorService threadPool = Executors.newFixedThreadPool(10);
+    protected Queue<Socket> connected = new ArrayBlockingQueue<Socket>(8 * 1024);
 
     public ThreadPoolServer(int port) {
         this.serverPort = port;
@@ -40,6 +43,8 @@ public class ThreadPoolServer implements Runnable {
 
             try {
                 clientSocket = this.serverSocket.accept();
+
+                connected.add(clientSocket);
             } catch (IOException e) {
                 if (isStopped()) {
                     System.out.println("Server Stopped.");
@@ -50,7 +55,7 @@ public class ThreadPoolServer implements Runnable {
             }
 
             try {
-                this.threadPool.execute(new WorkerRunnable(clientSocket, "multithread server"));
+                this.threadPool.execute(new WorkerRunnable(connected.poll(), "multithread server"));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -67,7 +72,7 @@ public class ThreadPoolServer implements Runnable {
 
     private void openServerSocket() {
         try {
-            this.serverSocket = new ServerSocket(this.serverPort,16*1024);
+            this.serverSocket = new ServerSocket(this.serverPort, 16 * 1024);
         } catch (IOException e) {
             throw new RuntimeException("Cannot open port 8080", e);
         }
