@@ -1,8 +1,11 @@
 package com.jw.webserver.singlethread;
 
+import com.jw.webserver.HttpUtils;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 /**
@@ -18,6 +21,7 @@ public class SingleThreadServer implements Runnable {
     protected ServerSocket serverSocket = null;
     protected boolean isStopped = false;
     protected Thread runningThread = null;
+    private HttpUtils httpUtils = new HttpUtils();
 
     public SingleThreadServer(int port) {
         this.serverPort = port;
@@ -56,48 +60,42 @@ public class SingleThreadServer implements Runnable {
     }
 
     private void processClientRequest(Socket clientSocket) throws IOException {
-        BufferedReader bufferedReader = null;
+        InputStreamReader inputStreamReader = null;
         OutputStream output = null;
         long time = System.currentTimeMillis();
         String content = null;
-        String requestMessageLine = null;
 
         try {
-            bufferedReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-
             //一定要將client的data讀進來,否則用apache ab測試時,會出現"connection reset by peer (104)"
-            requestMessageLine = bufferedReader.readLine();
+            inputStreamReader = new InputStreamReader(clientSocket.getInputStream());
 
-            // sample: GET / HTTP/1.0
-            StringTokenizer tokenizer = new StringTokenizer(requestMessageLine);
+            Map<String, Object> headerMap = httpUtils.readRequest(inputStreamReader);
 
-            if ("GET".equals(tokenizer.nextToken())) {
-                String fileName = tokenizer.nextToken();
+            String fileName = ((String[]) headerMap.get("GET"))[0];
 
-                output = clientSocket.getOutputStream();
+            output = clientSocket.getOutputStream();
 
-                switch (fileName) {
-                    case "/":
-                        content = "<html><body>" + time + "</body></html>";
-                        output.write(("HTTP/1.1 200 OK\r\n" +
-                                "Content-Length: " + content.length() + "\r\n" +
-                                "Content-Type: text/html\r\n" +
-                                "\r\n" +
-                                content).getBytes("UTF-8"));
-                        break;
-                    default:
-                        content = "404 Not Found";
-                        output.write(("HTTP/1.1 404 Not Found\r\n" +
-                                "Content-Length: " + content.length() + "\r\n" +
-                                "Content-Type: text/html\r\n" +
-                                "\r\n" +
-                                content).getBytes("UTF-8"));
-                        break;
-                }
+            switch (fileName) {
+                case "/":
+                    content = "<html><body>" + time + "</body></html>";
+                    output.write(("HTTP/1.1 200 OK\r\n" +
+                            "Content-Length: " + content.length() + "\r\n" +
+                            "Content-Type: text/html\r\n" +
+                            "\r\n" +
+                            content).getBytes("UTF-8"));
+                    break;
+                default:
+                    content = "404 Not Found";
+                    output.write(("HTTP/1.1 404 Not Found\r\n" +
+                            "Content-Length: " + content.length() + "\r\n" +
+                            "Content-Type: text/html\r\n" +
+                            "\r\n" +
+                            content).getBytes("UTF-8"));
+                    break;
             }
         } finally {
-            if (bufferedReader != null) {
-                bufferedReader.close();
+            if (inputStreamReader != null) {
+                inputStreamReader.close();
             }
 
             if (output != null) {
@@ -108,8 +106,6 @@ public class SingleThreadServer implements Runnable {
                 clientSocket.close();
             }
         }
-
-//        System.out.println("Request processed: " + time);
     }
 
     private boolean isStopped() {

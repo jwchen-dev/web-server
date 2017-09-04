@@ -1,14 +1,10 @@
 package com.jw.webserver.threadpool.queue;
 
-import com.jw.webserver.threadpool.WorkerRunnable;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Tip.
@@ -17,17 +13,19 @@ import java.util.concurrent.Executors;
  * <p>
  * Created by jw on 2017/8/25.
  */
-public class ThreadPoolServer implements Runnable {
+public class QueueServer implements Runnable {
 
     protected int serverPort = 8080;
     protected ServerSocket serverSocket = null;
     protected boolean isStopped = false;
     protected Thread runningThread = null;
-    protected ExecutorService threadPool = Executors.newFixedThreadPool(10);
     protected Queue<Socket> connected = new ArrayBlockingQueue<Socket>(8 * 1024);
 
-    public ThreadPoolServer(int port) {
+    private QueueProcessor queueProcessor = null;
+
+    public QueueServer(int port) {
         this.serverPort = port;
+        this.queueProcessor = new QueueProcessor(connected, 1);
     }
 
     @Override
@@ -38,11 +36,11 @@ public class ThreadPoolServer implements Runnable {
 
         openServerSocket();
 
-        while (!isStopped()) {
-            Socket clientSocket = null;
+        new Thread(this.queueProcessor).start();
 
+        while (!isStopped()) {
             try {
-                clientSocket = this.serverSocket.accept();
+                Socket clientSocket = this.serverSocket.accept();
 
                 connected.add(clientSocket);
             } catch (IOException e) {
@@ -54,14 +52,12 @@ public class ThreadPoolServer implements Runnable {
                 throw new RuntimeException("Error accepting client connection", e);
             }
 
-            try {
-                this.threadPool.execute(new WorkerRunnable(connected.poll(), "multithread server"));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+//            try {
+//                this.threadPool.execute(new WorkerRunnable(connected.poll(), "multithread server"));
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
         }
-
-        this.threadPool.shutdown();
 
         System.out.println("Server Stopped.");
     }
@@ -89,7 +85,7 @@ public class ThreadPoolServer implements Runnable {
     }
 
     public static void main(String[] args) {
-        ThreadPoolServer server = new ThreadPoolServer(8080);
+        QueueServer server = new QueueServer(8080);
         new Thread(server).start();
 
 //        try {
