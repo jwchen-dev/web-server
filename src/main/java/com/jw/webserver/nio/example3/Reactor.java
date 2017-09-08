@@ -8,6 +8,8 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Created by jw on 2017/9/7.
@@ -17,6 +19,7 @@ public class Reactor implements Runnable {
     final Selector selector;
     final ServerSocketChannel serverSocketChannel;
     final boolean isWithThreadPool;
+    private static ExecutorService pool = Executors.newFixedThreadPool(1);
 
     /*Reactor的主要工作：
      * 1.给ServerSocketChannel设置一个Acceptor，接收请求
@@ -61,7 +64,9 @@ public class Reactor implements Runnable {
     void dispatch(SelectionKey k) {
         Runnable r = (Runnable) (k.attachment());
         if (r != null) {
-            r.run();
+//            r.run();
+//            pool.execute(r);
+            new Thread(r).run();
         }
     }
 
@@ -86,7 +91,7 @@ public class Reactor implements Runnable {
     public static void main(String[] args) throws IOException{
 
         int port = 8080;
-        boolean withThreadPool = true;
+        boolean withThreadPool = false;
         Reactor reactor  = new Reactor(port, withThreadPool);
         new Thread(reactor).start();
     }
